@@ -99,18 +99,30 @@ class AspectRatioChecker(TaskerEventSink):
             logger.error("无法获取控制器")
             return
 
-        # 获取缓存的图像
+        # 获取截图：Agent 刚启动（或 Win32 控制器尚未产生缓存）时 cached_image 为空，
+        # maa 绑定会直接抛 "Failed to get cached image"，导致后面"主动截图"的回退
+        # 代码执行不到。因此这里改为先主动截一张图再取缓存，两步各自容错。
+        img = None
         try:
-            img = controller.cached_image
-            if img is None:
-                # 如果没有缓存图像，尝试截图
-                img = controller.post_screencap().wait().get()
+            job = controller.post_screencap().wait()
+            if job is not None and job.succeeded:
+                img = controller.cached_image
         except Exception as e:
-            logger.error(f"无法获取截图: {e}")
-            return
+            logger.debug(f"主动截图失败: {e}")
 
         if img is None:
-            logger.error("无法获取截图")
+            try:
+                img = controller.cached_image
+            except Exception:
+                img = None
+
+        if img is None:
+            logger.error(
+                "无法获取截图（控制器未成功截取画面）。"
+                "请检查：1) MXU 实时画面是否正常显示游戏内容；"
+                "2) 游戏窗口是否被最小化（可遮挡但不要最小化）；"
+                "3) 连接设置中的窗口是否仍存在（关掉重开后需重新连接）。"
+            )
             return
 
         # 获取图像尺寸

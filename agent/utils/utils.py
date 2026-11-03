@@ -105,6 +105,12 @@ def _resolve_instance_id(context: Any):
         if serial:
             return f"adb::{serial}", "controller.info.adb_serial"
 
+    # 1.5) Win32 控制器：hwnd 就是本实例连接的窗口句柄，多开（多窗口）必然不同
+    if str(info.get("type", "")).lower() == "win32":
+        hwnd = info.get("hwnd")
+        if hwnd:
+            return f"win32::{hwnd}", "controller.info.hwnd"
+
     # 2) 兜底：控制器 uuid（Adb 下等同 android_id，多开副本可能重复）
     device_uuid = _controller_uuid(context)
     if device_uuid:
